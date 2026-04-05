@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FileCheck, Search, Plus, Save, Clock, HelpCircle, Check, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { addJurnalTransaksi } from '@/lib/actions/jurnal';
 
 // Simulated database data
 const DUMMY_UNITS = [
@@ -178,11 +178,7 @@ export default function InputJurnalPage() {
       // Since supabase client might be mocked if ENV is missing, we check error.
       // In real scenario, uncomment the below insertion.
       
-      const { error } = await supabase.from('jurnal_transaksi').insert([debitRow, creditRow]);
-      
-      if (error && error.message !== 'Invalid URL') {
-        throw new Error(error.message);
-      }
+      await addJurnalTransaksi([debitRow, creditRow]);
 
       setMessage({ type: 'success', text: 'Transaksi Double-Entry berhasil disimpan.' });
       // Reset form but keep date and sequential noBukti if desired

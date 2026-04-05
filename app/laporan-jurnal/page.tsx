@@ -10,7 +10,7 @@ import {
   Filter, 
   RefreshCcw 
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { getJurnal, deleteJurnal } from '@/lib/actions/jurnal';
 import * as XLSX from 'xlsx';
 import {
   useReactTable,
@@ -57,16 +57,8 @@ export default function LaporanJurnalPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: result, error } = await supabase
-        .from('jurnal_transaksi')
-        .select('*')
-        .eq('KOKE', filterUnit)
-        .eq('KOBU', filterBulan)
-        .order('TANGGAL', { ascending: true })
-        .order('NO_BUKJUR', { ascending: true });
+      const result = await getJurnal(filterUnit, filterBulan);
         
-      if (error && error.message !== 'Invalid URL') throw new Error(error.message);
-      
       if (result && result.length > 0) {
         setData(result);
       } else if (filterUnit === '00' && filterBulan === '01') {
@@ -92,8 +84,7 @@ export default function LaporanJurnalPage() {
   const handleDelete = async (id: string) => {
     if(!confirm("Yakin ingin menghapus record ini?")) return;
     try {
-      const { error } = await supabase.from('jurnal_transaksi').delete().eq('id', id);
-      if(error && error.message !== 'Invalid URL') throw error;
+      await deleteJurnal(id);
       setData(data.filter(d => d.id !== id));
     } catch(e) {
       setData(data.filter(d => d.id !== id));

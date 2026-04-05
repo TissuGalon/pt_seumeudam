@@ -1,69 +1,50 @@
 "use server";
 
-import { createClient } from '@supabase/supabase-js';
+import { pool } from '../db';
 import { MasterRekening, MasterRekeningInput } from '../types/master-rekening';
 import { revalidatePath } from 'next/cache';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseKey || 'placeholder-key');
-
 export async function getMasterRekening() {
-  const { data, error } = await supabase
-    .from('master_rekening')
-    .select('*')
-    .order('REKSUB', { ascending: true });
-
-  if (error) {
+  try {
+    const [rows] = await pool.query('SELECT * FROM master_rekening ORDER BY REKSUB ASC');
+    return rows as MasterRekening[];
+  } catch (error) {
     console.error("Error fetching master_rekening:", error);
     return [];
   }
-
-  return data as MasterRekening[];
 }
 
 export async function addMasterRekening(input: MasterRekeningInput) {
-  const { data, error } = await supabase
-    .from('master_rekening')
-    .insert([input])
-    .select();
-
-  if (error) {
+  try {
+    await pool.query('INSERT INTO master_rekening SET ?', [input]);
+    const [rows] = await pool.query('SELECT * FROM master_rekening WHERE REKSUB = ?', [input.REKSUB]);
+    revalidatePath('/master-rekening');
+    return (rows as any[])[0] as MasterRekening;
+  } catch (error: any) {
     console.error("Error adding master_rekening:", error);
     throw new Error(error.message);
   }
-
-  revalidatePath('/master-rekening');
-  return data?.[0] as MasterRekening;
 }
 
 export async function updateMasterRekening(reksub: string, input: Partial<MasterRekeningInput>) {
-  const { data, error } = await supabase
-    .from('master_rekening')
-    .update(input)
-    .eq('REKSUB', reksub)
-    .select();
-
-  if (error) {
+  try {
+    await pool.query('UPDATE master_rekening SET ? WHERE REKSUB = ?', [input, reksub]);
+    const [rows] = await pool.query('SELECT * FROM master_rekening WHERE REKSUB = ?', [reksub]);
+    revalidatePath('/master-rekening');
+    return (rows as any[])[0] as MasterRekening;
+  } catch (error: any) {
     console.error("Error updating master_rekening:", error);
     throw new Error(error.message);
   }
-
-  revalidatePath('/master-rekening');
-  return data?.[0] as MasterRekening;
 }
 
 export async function deleteMasterRekening(reksub: string) {
-  const { error } = await supabase
-    .from('master_rekening')
-    .delete()
-    .eq('REKSUB', reksub);
-
-  if (error) {
+  try {
+    await pool.query('DELETE FROM master_rekening WHERE REKSUB = ?', [reksub]);
+    revalidatePath('/master-rekening');
+    return true;
+  } catch (error: any) {
     console.error("Error deleting master_rekening:", error);
     throw new Error(error.message);
   }
-
-  revalidatePath('/master-rekening');
-  return true;
 }
