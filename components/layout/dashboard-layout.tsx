@@ -6,9 +6,11 @@ import { useSidebar } from '@/lib/sidebar-context';
 import { cn } from '@/lib/utils';
 import { Menu, X, Bell, User, Search as SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CommandMenu } from '@/components/command-menu';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isCollapsed, openMobile, setOpenMobile, toggleSidebar, toggleMobile } = useSidebar();
+  const [openCommand, setOpenCommand] = React.useState(false);
 
   return (
     <div className="flex h-screen w-full bg-slate-50/50 overflow-hidden font-sans">
@@ -51,13 +53,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <Menu className={cn("h-5 w-5 transition-transform duration-500", isCollapsed && "rotate-180")} />
             </Button>
 
-            <div className="hidden md:flex items-center gap-3 bg-slate-100/50 px-4 py-2 rounded-2xl border border-slate-200/60 w-64 lg:w-80 group focus-within:bg-white focus-within:border-emerald-300 focus-within:ring-4 focus-within:ring-emerald-500/5 transition-all duration-300">
-              <SearchIcon className="h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Cari fitur atau laporan..." 
-                className="bg-transparent text-[13px] outline-none w-full text-slate-600 font-medium placeholder:text-slate-400"
-              />
+            <div 
+              className="hidden md:flex items-center gap-3 bg-slate-100/50 px-4 py-2 rounded-2xl border border-slate-200/60 w-64 lg:w-80 group hover:border-emerald-300 hover:bg-white cursor-pointer transition-all duration-300 select-none shadow-sm hover:shadow-emerald-500/5"
+              onClick={() => setOpenCommand(true)}
+            >
+              <SearchIcon className="h-4 w-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+              <div className="flex-1 text-[13px] text-slate-400 font-medium truncate">
+                Cari fitur atau laporan...
+              </div>
               <kbd className="hidden lg:inline-flex h-5 select-none items-center gap-1 rounded border border-slate-200 bg-white px-1.5 font-mono text-[10px] font-black text-slate-400 opacity-100">
                 <span className="text-xs">⌘</span>K
               </kbd>
@@ -88,6 +91,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-auto relative scroll-smooth bg-slate-50/30">
           {children}
         </main>
+
+        <CommandMenu open={openCommand} setOpen={setOpenCommand} />
       </div>
     </div>
   );

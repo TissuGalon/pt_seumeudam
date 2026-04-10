@@ -1,7 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getJurnal, deleteJurnal, updateJurnal } from '@/lib/actions/jurnal';
+import { getMasterUnit } from '@/lib/actions/master-unit';
+import { getMasterRekening } from '@/lib/actions/master-rekening';
+import { MasterUnit } from '@/lib/types/master-unit';
+import { MasterRekening } from '@/lib/types/master-rekening';
+import * as XLSX from 'xlsx';
 import { 
+  Search,
+  Check,
+  X,
+  Save,
   FileSpreadsheet, 
   Download, 
   Trash2, 
@@ -15,8 +25,6 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { getJurnal, deleteJurnal } from '@/lib/actions/jurnal';
-import * as XLSX from 'xlsx';
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,12 +36,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// Simulated database data
-const DUMMY_UNITS = [
-  { koke: '00', nake: 'Kantor Pusat PT Seumadam' },
-  { koke: '01', nake: 'Kebun Plasma Seumadam' },
-];
-
 const BULAN_OPTIONS = [
   { value: '01', label: 'Januari' }, { value: '02', label: 'Februari' },
   { value: '03', label: 'Maret' }, { value: '04', label: 'April' },
@@ -43,44 +45,152 @@ const BULAN_OPTIONS = [
   { value: '11', label: 'November' }, { value: '12', label: 'Desember' },
 ];
 
-// Initial mock data simulating double entries
-const MOCK_DATA = [
-  { id: '1', KOBU: '01', NO_BUKJUR: 'JR/01/26001', TANGGAL: '2026-01-10', REK: '210.00', REKLA: '154.00', URAIAN1: 'Gaji Pusat Jan 2026', DEBET: 50000000, KREDIT: 0 },
-  { id: '2', KOBU: '01', NO_BUKJUR: 'JR/01/26001', TANGGAL: '2026-01-10', REK: '154.00', REKLA: '210.00', URAIAN1: 'Gaji Pusat Jan 2026', DEBET: 0, KREDIT: 50000000 },
-  { id: '3', KOBU: '01', NO_BUKJUR: 'JR/01/26002', TANGGAL: '2026-01-15', REK: '511.00', REKLA: '154.00', URAIAN1: 'Listrik Kantor', DEBET: 2500000, KREDIT: 0 },
-  { id: '4', KOBU: '01', NO_BUKJUR: 'JR/01/26002', TANGGAL: '2026-01-15', REK: '154.00', REKLA: '511.00', URAIAN1: 'Listrik Kantor', DEBET: 0, KREDIT: 2500000 },
-];
+
+import { useRef } from 'react';
+
+function CustomCombobox({ 
+  items, 
+  value, 
+  onChange, 
+  placeholder,
+  valueKey,
+  labelKey
+}: { 
+  items: any[]; 
+  value: string; 
+  onChange: (val: string) => void; 
+  placeholder: string;
+  valueKey: string;
+  labelKey: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [wrapperRef]);
+
+  const filtered = items.filter(i => 
+    i[valueKey]?.toLowerCase().includes(search.toLowerCase()) || 
+    i[labelKey]?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedItem = items.find(i => i[valueKey] === value);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div 
+        className={cn(
+          "flex items-center justify-between border rounded-xl px-3 py-2 bg-white cursor-pointer transition-all duration-200",
+          open ? "border-emerald-500 ring-2 ring-emerald-500/10 shadow-sm" : "border-slate-200 hover:border-slate-300"
+        )}
+        onClick={() => setOpen(!open)}
+      >
+        <span className={selectedItem ? "text-slate-900 text-sm font-medium" : "text-slate-400 text-sm"}>
+          {selectedItem ? `${selectedItem[valueKey]} - ${selectedItem[labelKey]}` : placeholder}
+        </span>
+        <Search className="w-4 h-4 text-slate-400" />
+      </div>
+
+      {open && (
+        <div className="absolute z-[60] top-full mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
+          <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+            <input 
+              autoFocus
+              type="text"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 transition-colors shadow-sm font-medium text-slate-700"
+              placeholder="Cari kode atau nama..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-sm text-slate-400 text-center italic">Tidak ditemukan...</div>
+            ) : (
+              filtered.map((item) => (
+                <div 
+                  key={item[valueKey]}
+                  className={cn(
+                    "px-3 py-2.5 text-sm cursor-pointer rounded-lg flex items-center justify-between transition-colors",
+                    value === item[valueKey] 
+                      ? 'bg-emerald-50 text-emerald-700 font-bold' 
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  )}
+                  onClick={() => {
+                    onChange(item[valueKey]);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  <span className="truncate">{item[valueKey]} - {item[labelKey]}</span>
+                  {value === item[valueKey] && <Check className="w-4 h-4 shrink-0 shadow-sm" />}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function LaporanJurnalPage() {
-  const [data, setData] = useState<any[]>(MOCK_DATA);
+  const [data, setData] = useState<any[]>([]);
+  const [units, setUnits] = useState<MasterUnit[]>([]);
+  const [rekening, setRekening] = useState<MasterRekening[]>([]);
   const [loading, setLoading] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   
   const [filterUnit, setFilterUnit] = useState('00');
   const [filterBulan, setFilterBulan] = useState('01');
   
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // Edit Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState({
+    id: 0,
+    TANGGAL: '',
+    NO_BUKJUR: '',
+    REK: '',
+    REKLA: '',
+    URAIAN1: '',
+    DEBET: 0,
+    KREDIT: 0
+  });
+
+  useEffect(() => {
+    const initPage = async () => {
+      const [u, r] = await Promise.all([
+        getMasterUnit(),
+        getMasterRekening()
+      ]);
+      setUnits(u);
+      setRekening(r);
+      if (u.length > 0 && !filterUnit) {
+        setFilterUnit(u[0].KOKE);
+      }
+    };
+    initPage();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const result = await getJurnal(filterUnit, filterBulan);
-        
-      if (result && result.length > 0) {
-        setData(result);
-      } else if (filterUnit === '00' && filterBulan === '01') {
-        setData(MOCK_DATA);
-      } else {
-        setData([]);
-      }
+      setData(result || []);
     } catch (e) {
-      if (filterUnit === '00' && filterBulan === '01') {
-        setData(MOCK_DATA);
-      } else {
-        setData([]);
-      }
+      console.error("Error fetching data:", e);
+      setData([]);
     } finally {
-      setTimeout(() => setLoading(false), 500); // Small delay for UX
+      setTimeout(() => setLoading(false), 500); 
     }
   };
 
@@ -122,24 +232,67 @@ export default function LaporanJurnalPage() {
     XLSX.writeFile(wb, `Jurnal_Unit_${filterUnit}_Bulan_${filterBulan}.xlsx`);
   };
 
-  const formatRupiah = (angka: number) => {
+  const formatRupiah = (angka: any) => {
+    const num = typeof angka === 'number' ? angka : parseFloat(angka || 0);
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(angka || 0);
+    }).format(num);
   };
 
   const totalDebet = data.reduce((acc, curr) => acc + Number(curr.DEBET || 0), 0);
   const totalKredit = data.reduce((acc, curr) => acc + Number(curr.KREDIT || 0), 0);
   const isBalanced = Math.abs(totalDebet - totalKredit) < 0.01;
 
+  const handleOpenEdit = (row: any) => {
+    setEditingRow(row);
+    setEditFormData({
+      id: row.id,
+      TANGGAL: row.TANGGAL instanceof Date ? row.TANGGAL.toISOString().split('T')[0] : String(row.TANGGAL).split('T')[0],
+      NO_BUKJUR: row.NO_BUKJUR,
+      REK: row.REK,
+      REKLA: row.REKLA,
+      URAIAN1: row.URAIAN1,
+      DEBET: parseFloat(row.DEBET || 0),
+      KREDIT: parseFloat(row.KREDIT || 0)
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { id, ...input } = editFormData;
+      
+      // Update NAREK if needed (optional but good for consistency)
+      const debetAccount = rekening.find(r => r.REKSUB === input.REK);
+      const updatedInput = {
+        ...input,
+        NAREK: debetAccount?.NAMA_PERK || editingRow.NAREK
+      };
+
+      await updateJurnal(id, updatedInput);
+      setIsEditOpen(false);
+      fetchData();
+    } catch (err: any) {
+      alert("Gagal mengupdate jurnal: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const columns = [
     {
       header: 'Tanggal',
       accessorKey: 'TANGGAL',
-      cell: (info: any) => <span className="text-xs font-medium text-slate-500 whitespace-nowrap">{info.getValue()}</span>
+      cell: (info: any) => {
+        const val = info.getValue();
+        const dateStr = val instanceof Date ? val.toISOString().split('T')[0] : String(val || '');
+        return <span className="text-xs font-medium text-slate-500 whitespace-nowrap">{dateStr}</span>
+      }
     },
     {
       header: 'No Bukti',
@@ -180,7 +333,7 @@ export default function LaporanJurnalPage() {
             variant="ghost" 
             size="icon" 
             className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
-            onClick={() => setEditingId(info.row.original.id)}
+            onClick={() => handleOpenEdit(info.row.original)}
             title="Koreksi"
           >
             <Edit className="w-4 h-4" />
@@ -268,7 +421,7 @@ export default function LaporanJurnalPage() {
               onChange={e => setFilterUnit(e.target.value)}
               className="text-sm bg-transparent outline-none font-bold text-slate-700 py-1 cursor-pointer"
             >
-              {DUMMY_UNITS.map(u => <option key={u.koke} value={u.koke}>{u.nake}</option>)}
+              {units.map(u => <option key={u.KOKE} value={u.KOKE}>{u.NAKE}</option>)}
             </select>
           </div>
 
@@ -420,6 +573,142 @@ export default function LaporanJurnalPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 flex justify-between items-center text-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                  <Edit className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black tracking-tight">Koreksi Transaksi</h3>
+                  <p className="text-xs text-emerald-100 font-medium opacity-80">ID Jurnal: #{editFormData.id}</p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsEditOpen(false)}
+                className="text-white hover:bg-white/10 rounded-xl"
+              >
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Calendar className="w-3 h-3 text-emerald-500" /> Tanggal
+                  </label>
+                  <input 
+                    type="date" 
+                    required
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                    value={editFormData.TANGGAL}
+                    onChange={e => setEditFormData({...editFormData, TANGGAL: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Hash className="w-3 h-3 text-emerald-500" /> No Bukti
+                  </label>
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-black text-slate-800 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                    value={editFormData.NO_BUKJUR}
+                    onChange={e => setEditFormData({...editFormData, NO_BUKJUR: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest pl-1">Rekening Utama</label>
+                  <CustomCombobox 
+                    items={rekening} 
+                    value={editFormData.REK} 
+                    onChange={(v) => setEditFormData({...editFormData, REK: v})} 
+                    placeholder="Pilih rekening..."
+                    valueKey="REKSUB"
+                    labelKey="NAMA_PERK"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-rose-700 uppercase tracking-widest pl-1">Rekening Lawan</label>
+                  <CustomCombobox 
+                    items={rekening} 
+                    value={editFormData.REKLA} 
+                    onChange={(v) => setEditFormData({...editFormData, REKLA: v})} 
+                    placeholder="Pilih rekening lawan..."
+                    valueKey="REKSUB"
+                    labelKey="NAMA_PERK"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Uraian / Keterangan</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                  value={editFormData.URAIAN1}
+                  onChange={e => setEditFormData({...editFormData, URAIAN1: e.target.value})}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Debet</label>
+                  <input 
+                    type="number" 
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-emerald-700 focus:border-emerald-500 outline-none shadow-sm"
+                    value={editFormData.DEBET}
+                    onChange={e => setEditFormData({...editFormData, DEBET: parseFloat(e.target.value || '0')})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Kredit</label>
+                  <input 
+                    type="number" 
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-rose-700 focus:border-emerald-500 outline-none shadow-sm"
+                    value={editFormData.KREDIT}
+                    onChange={e => setEditFormData({...editFormData, KREDIT: parseFloat(e.target.value || '0')})}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setIsEditOpen(false)}
+                  className="px-6 h-11 border-2 border-slate-100 text-slate-500 hover:bg-slate-50 rounded-xl font-bold text-sm transition-all"
+                >
+                  Batal
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={loading}
+                  className="px-8 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// Added Hash icon for the modal label
+const Hash = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+);

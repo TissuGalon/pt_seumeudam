@@ -20,7 +20,7 @@ export function GlobalSidebar() {
   ];
 
   const secondaryLinks = [
-    { name: 'Pengaturan', href: '/settings', icon: Settings },
+ /*    { name: 'Pengaturan', href: '/settings', icon: Settings }, */
     { name: 'Keluar', href: '/logout', icon: LogOut, className: 'text-rose-400 hover:bg-rose-500/10 hover:text-rose-300' },
   ];
 

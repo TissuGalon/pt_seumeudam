@@ -17,22 +17,12 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { addJurnalTransaksi } from '@/lib/actions/jurnal';
+import { getMasterUnit } from '@/lib/actions/master-unit';
+import { getMasterRekening } from '@/lib/actions/master-rekening';
+import { MasterUnit } from '@/lib/types/master-unit';
+import { MasterRekening } from '@/lib/types/master-rekening';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-// Simulated database data
-const DUMMY_UNITS = [
-  { koke: '00', nake: 'Kantor Pusat PT Seumadam' },
-  { koke: '01', nake: 'Kebun Plasma Seumadam' },
-];
-
-const DUMMY_REKENING = [
-  { reksub: '154.00', nare: 'Kas Lintas Unit' },
-  { reksub: '210.00', nare: 'Hutang Gaji' },
-  { reksub: '210.01', nare: 'Gaji Pokok' },
-  { reksub: '411.00', nare: 'Pendapatan Bunga' },
-  { reksub: '511.00', nare: 'Beban Operasional' },
-];
 
 const BULAN_OPTIONS = [
   { value: '01', label: 'Januari' }, { value: '02', label: 'Februari' },
@@ -138,6 +128,8 @@ function CustomCombobox({
 }
 
 export default function InputJurnalPage() {
+  const [units, setUnits] = useState<MasterUnit[]>([]);
+  const [rekening, setRekening] = useState<MasterRekening[]>([]);
   const [cutoff, setCutoff] = useState<{ unit: string; bulan: string; tahun: string } | null>(null);
   const [tempUnit, setTempUnit] = useState('');
   const [tempBulan, setTempBulan] = useState('');
@@ -155,6 +147,18 @@ export default function InputJurnalPage() {
     uraian: '',
     nilai: ''
   });
+
+  useEffect(() => {
+    const initData = async () => {
+      const [u, r] = await Promise.all([
+        getMasterUnit(),
+        getMasterRekening()
+      ]);
+      setUnits(u);
+      setRekening(r);
+    };
+    initData();
+  }, []);
 
   const handleCutoffSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +180,9 @@ export default function InputJurnalPage() {
     }
 
     try {
+      const debetAccount = rekening.find(r => r.REKSUB === formData.rekDebit);
+      const kreditAccount = rekening.find(r => r.REKSUB === formData.rekKredit);
+
       const debitRow = {
         KOKE: cutoff!.unit,
         KOBU: cutoff!.bulan,
@@ -183,6 +190,7 @@ export default function InputJurnalPage() {
         TANGGAL: formData.tanggal,
         REK: formData.rekDebit,
         REKLA: formData.rekKredit,
+        NAREK: debetAccount?.NAMA_PERK || '',
         URAIAN1: formData.uraian,
         DEBET: nilaiNum,
         KREDIT: 0
@@ -195,6 +203,7 @@ export default function InputJurnalPage() {
         TANGGAL: formData.tanggal,
         REK: formData.rekKredit,
         REKLA: formData.rekDebit,
+        NAREK: kreditAccount?.NAMA_PERK || '',
         URAIAN1: formData.uraian,
         DEBET: 0,
         KREDIT: nilaiNum
@@ -212,7 +221,7 @@ export default function InputJurnalPage() {
       }));
 
     } catch (err: any) {
-      setMessage({ type: 'success', text: '[Simulasi] Transaksi Double-Entry berhasil disimpan di lokal.' });
+      setMessage({ type: 'error', text: 'Gagal menyimpan transaksi: ' + (err.message || 'Unknown error') });
     } finally {
       setTimeout(() => setLoading(false), 500);
     }
@@ -245,8 +254,8 @@ export default function InputJurnalPage() {
                 onChange={(e) => setTempUnit(e.target.value)}
               >
                 <option value="">-- Pilih Unit --</option>
-                {DUMMY_UNITS.map(u => (
-                  <option key={u.koke} value={u.koke}>{u.koke} - {u.nake}</option>
+                {units.map(u => (
+                  <option key={u.KOKE} value={u.KOKE}>{u.KOKE} - {u.NAKE}</option>
                 ))}
               </select>
             </div>
@@ -399,12 +408,12 @@ export default function InputJurnalPage() {
                 <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[9px] font-black">MASUK (+)</span>
               </label>
               <CustomCombobox 
-                items={DUMMY_REKENING} 
+                items={rekening} 
                 value={formData.rekDebit} 
                 onChange={(v) => setFormData({...formData, rekDebit: v})} 
                 placeholder="Pilih rekening debet..."
-                valueKey="reksub"
-                labelKey="nare"
+                valueKey="REKSUB"
+                labelKey="NAMA_PERK"
               />
             </div>
 
@@ -414,12 +423,12 @@ export default function InputJurnalPage() {
                 <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[9px] font-black">KELUAR (-)</span>
               </label>
               <CustomCombobox 
-                items={DUMMY_REKENING} 
+                items={rekening} 
                 value={formData.rekKredit} 
                 onChange={(v) => setFormData({...formData, rekKredit: v})} 
                 placeholder="Pilih rekening kredit..."
-                valueKey="reksub"
-                labelKey="nare"
+                valueKey="REKSUB"
+                labelKey="NAMA_PERK"
               />
             </div>
 

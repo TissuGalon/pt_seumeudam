@@ -59,3 +59,14 @@ export async function addJurnalTransaksi(rows: any[]) {
     connection.release();
   }
 }
+
+export async function updateJurnal(id: number, input: any) {
+  try {
+    await pool.query('UPDATE jurnal_transaksi SET ? WHERE id = ?', [input, id]);
+    revalidatePath('/laporan-jurnal');
+    return true;
+  } catch (error: any) {
+    console.error("Error updating jurnal:", error);
+    throw new Error(error.message);
+  }
+}
