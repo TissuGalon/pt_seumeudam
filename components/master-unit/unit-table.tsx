@@ -1,19 +1,12 @@
 "use client";
 
 import { useState } from 'react';
-import {
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getPaginationRowModel,
-  getFilteredRowModel,
-} from "@tanstack/react-table";
+import { ColumnDef } from "@tanstack/react-table";
 import { MasterUnit } from '@/lib/types/master-unit';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { deleteMasterUnit } from '@/lib/actions/master-unit';
+import { DataTable } from "@/components/ui/data-table";
 import UnitForm from './unit-form';
 
 interface UnitTableProps {
@@ -21,7 +14,6 @@ interface UnitTableProps {
 }
 
 export default function UnitTable({ data }: UnitTableProps) {
-  const [globalFilter, setGlobalFilter] = useState('');
   const [tableData, setTableData] = useState(data);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingData, setEditingData] = useState<MasterUnit | undefined>();
@@ -42,25 +34,30 @@ export default function UnitTable({ data }: UnitTableProps) {
     {
       accessorKey: "KOKE",
       header: "Kode",
-      cell: ({ row }) => <div className="font-semibold text-slate-700">{row.getValue("KOKE")}</div>,
+      cell: ({ row }) => <div className="font-bold text-slate-800">{row.getValue("KOKE")}</div>,
     },
     {
       accessorKey: "NAKE",
       header: "Nama Kebun/Unit",
+      cell: ({ row }) => <div className="font-medium">{row.getValue("NAKE")}</div>,
     },
     {
       accessorKey: "PIMPINAN",
       header: "Pimpinan",
-      cell: ({ row }) => row.getValue("PIMPINAN") || "-",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{row.getValue("PIMPINAN") || "-"}</span>
+        </div>
+      ),
     },
     {
       accessorKey: "NAMA_KTU",
       header: "KTU",
-      cell: ({ row }) => row.getValue("NAMA_KTU") || "-",
+      cell: ({ row }) => <span className="text-slate-500">{row.getValue("NAMA_KTU") || "-"}</span>,
     },
     {
       id: "actions",
-      header: () => <div className="text-right">Aksi</div>,
+      header: "Aksi",
       cell: ({ row }) => {
         const item = row.original;
         return (
@@ -68,20 +65,21 @@ export default function UnitTable({ data }: UnitTableProps) {
             <Button 
               variant="outline" 
               size="sm" 
+              className="h-8 px-3 rounded-lg border-slate-200 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-200 transition-all"
               onClick={() => {
                 setEditingData(item);
                 setIsFormOpen(true);
               }}
             >
-              <Pencil className="w-4 h-4 mr-1 text-sky-600" /> Edit
+              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="h-8 px-3 rounded-lg border-slate-200 text-rose-500 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200 transition-all"
               onClick={() => handleDelete(item.KOKE)}
             >
-              <Trash2 className="w-4 h-4 mr-1" /> Hapus
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Hapus
             </Button>
           </div>
         );
@@ -89,106 +87,25 @@ export default function UnitTable({ data }: UnitTableProps) {
     },
   ];
 
-  const table = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    state: {
-      globalFilter,
-    },
-    onGlobalFilterChange: setGlobalFilter,
-  });
-
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="relative w-72">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-          <Input
-            placeholder="Cari unit/kebun..."
-            value={globalFilter ?? ""}
-            onChange={(event) => setGlobalFilter(event.target.value)}
-            className="pl-9 bg-white"
-          />
-        </div>
-        <Button 
-          className="bg-sky-600 hover:bg-sky-700 text-white" 
-          onClick={() => {
-            setEditingData(undefined);
-            setIsFormOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" /> Tambah Unit
-        </Button>
-      </div>
-
-      <div className="rounded-md border bg-white overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
-                      <th key={header.id} className="px-6 py-3 font-medium">
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b transition-colors hover:bg-slate-50/50"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={columns.length} className="h-24 text-center text-slate-500">
-                    Tidak ada data unit/kebun ditemukan.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Sebelumnya
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Selanjutnya
-        </Button>
-      </div>
+      <DataTable 
+        columns={columns} 
+        data={tableData} 
+        searchPlaceholder="Cari berdasarkan nama kebun, kode, atau pimpinan..."
+        filename="Master_Unit_Seumadam"
+        toolbarChildren={
+          <Button 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-4 shadow-sm shadow-emerald-200 transition-all" 
+            onClick={() => {
+              setEditingData(undefined);
+              setIsFormOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Tambah Unit
+          </Button>
+        }
+      />
 
       {isFormOpen && (
         <UnitForm 
@@ -200,7 +117,7 @@ export default function UnitTable({ data }: UnitTableProps) {
             if (isEdit) {
               setTableData(tableData.map(d => d.KOKE === newData.KOKE ? newData : d));
             } else {
-              setTableData([...tableData, newData]);
+              setTableData([newData, ...tableData]);
             }
           }}
         />

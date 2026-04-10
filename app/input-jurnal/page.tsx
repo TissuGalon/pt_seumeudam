@@ -1,8 +1,24 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { FileCheck, Search, Plus, Save, Clock, HelpCircle, Check, X } from 'lucide-react';
+import { 
+  FileCheck, 
+  Search, 
+  Plus, 
+  Save, 
+  Clock, 
+  HelpCircle, 
+  Check, 
+  X,
+  Building2,
+  Calendar,
+  AlertCircle,
+  Hash,
+  CheckCircle2
+} from 'lucide-react';
 import { addJurnalTransaksi } from '@/lib/actions/jurnal';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 // Simulated database data
 const DUMMY_UNITS = [
@@ -66,41 +82,51 @@ function CustomCombobox({
   return (
     <div ref={wrapperRef} className="relative">
       <div 
-        className="flex items-center justify-between border border-slate-300 rounded-md px-3 py-1.5 bg-white cursor-pointer hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-colors"
+        className={cn(
+          "flex items-center justify-between border rounded-xl px-3 py-2 bg-white cursor-pointer transition-all duration-200",
+          open ? "border-emerald-500 ring-2 ring-emerald-500/10 shadow-sm" : "border-slate-200 hover:border-slate-300"
+        )}
         onClick={() => setOpen(!open)}
       >
-        <span className={selectedItem ? "text-slate-900 text-sm" : "text-slate-500 text-sm"}>
+        <span className={selectedItem ? "text-slate-900 text-sm font-medium" : "text-slate-400 text-sm"}>
           {selectedItem ? `${selectedItem[valueKey]} - ${selectedItem[labelKey]}` : placeholder}
         </span>
         <Search className="w-4 h-4 text-slate-400" />
       </div>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-          <input 
-            autoFocus
-            type="text"
-            className="w-full border-b border-slate-100 px-3 py-2 text-sm outline-none placeholder:text-slate-400"
-            placeholder="Cari kode atau nama..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="max-h-60 overflow-y-auto">
+        <div className="absolute z-[60] top-full mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+            <input 
+              autoFocus
+              type="text"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 transition-colors shadow-sm font-medium text-slate-700"
+              placeholder="Cari kode atau nama..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-slate-200">
             {filtered.length === 0 ? (
-              <div className="p-3 text-sm text-slate-500 text-center">Tidak ditemukan.</div>
+              <div className="p-4 text-sm text-slate-400 text-center italic">Tidak ditemukan...</div>
             ) : (
               filtered.map((item) => (
                 <div 
                   key={item[valueKey]}
-                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-emerald-50 flex items-center justify-between ${value === item[valueKey] ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-700'}`}
+                  className={cn(
+                    "px-3 py-2.5 text-sm cursor-pointer rounded-lg flex items-center justify-between transition-colors",
+                    value === item[valueKey] 
+                      ? 'bg-emerald-50 text-emerald-700 font-bold' 
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  )}
                   onClick={() => {
                     onChange(item[valueKey]);
                     setOpen(false);
                     setSearch('');
                   }}
                 >
-                  <span>{item[valueKey]} - {item[labelKey]}</span>
-                  {value === item[valueKey] && <Check className="w-4 h-4" />}
+                  <span className="truncate">{item[valueKey]} - {item[labelKey]}</span>
+                  {value === item[valueKey] && <Check className="w-4 h-4 shrink-0 shadow-sm" />}
                 </div>
               ))
             )}
@@ -150,7 +176,6 @@ export default function InputJurnalPage() {
     }
 
     try {
-      // Create double-entry rows
       const debitRow = {
         KOKE: cutoff!.unit,
         KOBU: cutoff!.bulan,
@@ -175,13 +200,9 @@ export default function InputJurnalPage() {
         KREDIT: nilaiNum
       };
 
-      // Since supabase client might be mocked if ENV is missing, we check error.
-      // In real scenario, uncomment the below insertion.
-      
       await addJurnalTransaksi([debitRow, creditRow]);
 
       setMessage({ type: 'success', text: 'Transaksi Double-Entry berhasil disimpan.' });
-      // Reset form but keep date and sequential noBukti if desired
       setFormData(prev => ({
         ...prev,
         rekDebit: '',
@@ -191,31 +212,35 @@ export default function InputJurnalPage() {
       }));
 
     } catch (err: any) {
-      // Fallback for mocked mode or missing DB
       setMessage({ type: 'success', text: '[Simulasi] Transaksi Double-Entry berhasil disimpan di lokal.' });
     } finally {
-      setLoading(false);
+      setTimeout(() => setLoading(false), 500);
     }
   };
 
   if (!cutoff) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50 p-6">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden">
-          <div className="bg-emerald-600 p-6 text-center">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-              <FileCheck className="w-8 h-8 text-white" />
+      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50/20 h-full overflow-auto">
+        <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden transition-all hover:translate-y-[-4px]">
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-8 text-center relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+             <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+            
+            <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-md border border-white/30 shadow-inner">
+              <FileCheck className="w-10 h-10 text-white drop-shadow-md" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Buka Bulan Buku</h2>
-            <p className="text-emerald-100 text-sm">Pilih Unit Kebun dan periode bulan/tahun (Cut-off) sebelum memulai input jurnal.</p>
+            <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Buka Bulan Buku</h2>
+            <p className="text-emerald-100 text-sm font-medium leading-relaxed opacity-90 px-4">Pilih Unit Kebun dan periode bulan/tahun sebelum memulai input jurnal.</p>
           </div>
           
-          <form onSubmit={handleCutoffSubmit} className="p-6 space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-slate-700">Unit Kebun / Rekening</label>
+          <form onSubmit={handleCutoffSubmit} className="p-8 space-y-6">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Building2 className="w-3 h-3" /> Unit Kebun / Rekening
+              </label>
               <select 
                 required
-                className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                className="w-full border-2 border-slate-50 bg-slate-50 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-0 focus:border-emerald-500 bg-white outline-none transition-all shadow-sm"
                 value={tempUnit}
                 onChange={(e) => setTempUnit(e.target.value)}
               >
@@ -226,12 +251,14 @@ export default function InputJurnalPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-slate-700">Bulan</label>
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Calendar className="w-3 h-3" /> Bulan
+                </label>
                 <select 
                   required
-                  className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                  className="w-full border-2 border-slate-50 bg-slate-50 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-0 focus:border-emerald-500 bg-white outline-none transition-all shadow-sm"
                   value={tempBulan}
                   onChange={(e) => setTempBulan(e.target.value)}
                 >
@@ -241,24 +268,26 @@ export default function InputJurnalPage() {
                   ))}
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-slate-700">Tahun</label>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  Tahun
+                </label>
                 <input 
                   type="number" 
                   required
-                  className="w-full border border-slate-300 rounded-md px-3 py-2.5 text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                  className="w-full border-2 border-slate-50 bg-slate-50 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-0 focus:border-emerald-500 bg-white outline-none transition-all shadow-sm"
                   value={tempTahun}
                   onChange={(e) => setTempTahun(e.target.value)}
                 />
               </div>
             </div>
 
-            <button 
+            <Button 
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-2xl transition-all shadow-xl shadow-emerald-200 mt-2 active:scale-95"
             >
-              <Check className="w-5 h-5" /> Buka Sesi Input
-            </button>
+              <Check className="w-6 h-6 mr-2 stroke-[3px]" /> Buka Sesi Input
+            </Button>
           </form>
         </div>
       </div>
@@ -266,79 +295,97 @@ export default function InputJurnalPage() {
   }
 
   return (
-    <div className="flex-1 overflow-auto p-8">
+    <div className="flex-1 overflow-auto p-4 lg:p-10 scroll-smooth">
       {/* Header Info */}
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 inline-flex items-center gap-3">
-            <FileCheck className="text-emerald-500" /> Form Input Jurnal
-          </h1>
-          <p className="text-slate-500 mt-1 max-w-2xl text-sm">
-            Mode Entry Data Padat (Dense). Sistem akan mengotomatisasi <span className="font-semibold text-slate-700">Double-Entry</span> dengan membuat dua record berlawanan (Debet & Kredit) dalam sekali Save.
-          </p>
+      <div className="mb-10 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+             <div className="p-3 bg-emerald-100 text-emerald-700 rounded-2xl shadow-inner">
+                <FileCheck className="w-8 h-8" />
+             </div>
+             <div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">Form Input Jurnal</h1>
+                <p className="text-slate-400 mt-2 font-medium">Mode Entry Data Padat (Dense) dengan <span className="text-emerald-600 font-bold underline decoration-emerald-200 underline-offset-4 tracking-tight">Otomasi Double-Entry</span>.</p>
+             </div>
+          </div>
         </div>
 
         {/* Active Session Card */}
-        <div className="bg-white border border-emerald-200 shadow-sm rounded-xl px-4 py-3 flex flex-row items-center gap-4 shrink-0">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Sesi Aktif</div>
-            <div className="font-bold text-emerald-700">
-              Unit {cutoff.unit} • {BULAN_OPTIONS.find(b=>b.value===cutoff.bulan)?.label} {cutoff.tahun}
+        <div className="relative group overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-600 opacity-5 rounded-3xl group-hover:opacity-10 transition-opacity"></div>
+            <div className="relative bg-white/50 backdrop-blur-md border border-emerald-100 shadow-xl shadow-emerald-50 rounded-3xl px-6 py-4 flex flex-row items-center gap-6 transition-all hover:scale-[1.02]">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                <Clock className="w-6 h-6 stroke-[2.5px]" />
+              </div>
+              <div className="min-w-0 pr-4">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1.5 opacity-70">Sesi Aktif</div>
+                <div className="font-black text-slate-900 leading-tight">
+                  Unit {cutoff.unit} <span className="text-emerald-500 mx-1.5">•</span> {BULAN_OPTIONS.find(b=>b.value===cutoff.bulan)?.label} {cutoff.tahun}
+                </div>
+              </div>
+              <div className="w-px h-10 bg-emerald-100/50"></div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setCutoff(null)} 
+                className="h-10 w-10 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                title="Tutup Bulan / Ganti Sesi"
+              >
+                <X className="w-5 h-5 stroke-[2.5px]" />
+              </Button>
             </div>
-          </div>
-          <button 
-            onClick={() => setCutoff(null)} 
-            className="ml-4 p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-md transition-colors"
-            title="Tutup Bulan / Ganti Sesi"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
       </div>
 
       {/* Main Working Area: Dense Form */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-emerald-500" />
-            Entri Transaksi Baru
-          </h2>
-          <div className="text-xs text-slate-500 flex items-center gap-1">
-            <HelpCircle className="w-4 h-4" /> Shortcut: Tab antar kolom
+      <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
+        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+          <div className="flex items-center gap-3">
+             <div className="bg-emerald-500 h-2 w-6 rounded-full"></div>
+             <h2 className="font-black text-xl text-slate-800 tracking-tight">
+               Entri Transaksi Baru
+             </h2>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm text-[10px] font-black text-slate-400 tracking-wider">
+            <HelpCircle className="w-3 w-3 text-emerald-500" /> SHORTCUT: TAB UNTUK PINDAH KOLOM
           </div>
         </div>
         
-        <form onSubmit={handleSaveJurnal} className="p-5">
+        <form onSubmit={handleSaveJurnal} className="p-8 lg:p-10">
           {message && (
-             <div className={`mb-5 p-3 rounded-md text-sm flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                {message.type === 'success' ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+             <div className={cn(
+                 "mb-8 p-4 rounded-2xl text-sm font-bold flex items-center gap-3 animate-in slide-in-from-top-4 duration-300",
+                 message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+             )}>
+                {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                 {message.text}
              </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-x-4 gap-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-x-8 gap-y-10">
             {/* Row 1 */}
-            <div className="col-span-1 border-b border-slate-100 pb-4 md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-4">
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Tanggal Bukti</label>
+            <div className="col-span-1 md:col-span-6 grid grid-cols-1 md:grid-cols-6 gap-8 bg-slate-50/50 p-6 rounded-3xl border border-slate-100 shadow-inner">
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                   <Calendar className="w-3 h-3 text-emerald-500" /> Tanggal Bukti
+                </label>
                 <input 
                   type="date" 
                   required
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all shadow-sm"
                   value={formData.tanggal}
                   onChange={e => setFormData({...formData, tanggal: e.target.value})}
                 />
               </div>
-              <div className="md:col-span-4 space-y-1">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Nomor Bukti Transaksi</label>
+              <div className="md:col-span-4 space-y-2">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                   <Hash className="w-3 h-3 text-emerald-500" /> Nomor Bukti Transaksi
+                </label>
                 <input 
                   type="text" 
                   required
                   placeholder="Contoh: JR/01/26001"
-                  className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none font-mono"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-black text-slate-800 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all shadow-sm tracking-tight"
                   value={formData.noBukti}
                   onChange={e => setFormData({...formData, noBukti: e.target.value})}
                 />
@@ -346,10 +393,10 @@ export default function InputJurnalPage() {
             </div>
 
             {/* Row 2: Rekening */}
-            <div className="md:col-span-3 space-y-1">
-              <label className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center justify-between">
+            <div className="md:col-span-3 space-y-3">
+              <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest flex items-center justify-between pl-1">
                 Rekening Debit
-                <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">IN (+)</span>
+                <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[9px] font-black">MASUK (+)</span>
               </label>
               <CustomCombobox 
                 items={DUMMY_REKENING} 
@@ -361,10 +408,10 @@ export default function InputJurnalPage() {
               />
             </div>
 
-            <div className="md:col-span-3 space-y-1">
-              <label className="text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center justify-between">
+            <div className="md:col-span-3 space-y-3">
+              <label className="text-[10px] font-black text-rose-700 uppercase tracking-widest flex items-center justify-between pl-1">
                 Rekening Kredit (Lawan)
-                <span className="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded text-[10px]">OUT (-)</span>
+                <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[9px] font-black">KELUAR (-)</span>
               </label>
               <CustomCombobox 
                 items={DUMMY_REKENING} 
@@ -377,28 +424,28 @@ export default function InputJurnalPage() {
             </div>
 
             {/* Row 3: Detail */}
-            <div className="md:col-span-4 space-y-1">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Uraian Transaksi</label>
+            <div className="md:col-span-4 space-y-2">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">Uraian Transaksi / Deskripsi</label>
               <input 
                 type="text" 
                 maxLength={255}
-                className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
-                placeholder="Deskripsikan jurnal ini..."
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all shadow-sm"
+                placeholder="Tuliskan deskripsi lengkap transaksi..."
                 value={formData.uraian}
                 onChange={e => setFormData({...formData, uraian: e.target.value})}
               />
             </div>
 
-            <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Nilai Trx (Rp)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1.5 text-slate-500 text-sm font-semibold">Rp</span>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">Nilai Nominal Jurnal</label>
+              <div className="relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg font-black group-focus-within:text-emerald-500 transition-colors">Rp</span>
                 <input 
                   type="number" 
                   required
                   min="0"
                   step="0.01"
-                  className="w-full border border-slate-300 rounded-md pl-9 pr-3 py-1.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none font-mono font-semibold"
+                  className="w-full border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-lg font-black text-emerald-800 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all shadow-sm font-mono tracking-tighter"
                   placeholder="0.00"
                   value={formData.nilai}
                   onChange={e => setFormData({...formData, nilai: e.target.value})}
@@ -407,9 +454,10 @@ export default function InputJurnalPage() {
             </div>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-            <button 
+          <div className="mt-12 pt-8 border-t-2 border-slate-50 flex flex-col sm:flex-row items-center justify-end gap-4 lg:gap-6">
+            <Button 
               type="button" 
+              variant="outline"
               onClick={() => {
                 setFormData({
                   tanggal: new Date().toISOString().split('T')[0],
@@ -421,18 +469,18 @@ export default function InputJurnalPage() {
                 });
                 setMessage(null);
               }}
-              className="px-5 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+              className="w-full sm:w-auto px-8 h-12 bg-white border-2 border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-2xl font-black text-sm transition-all"
             >
-              Reset
-            </button>
-            <button 
+              Reset Form
+            </Button>
+            <Button 
               type="submit" 
               disabled={loading}
-              className="px-6 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-md shadow-md transition-all flex items-center gap-2"
+              className="w-full sm:w-auto px-10 h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-200 transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-5 h-5 stroke-[2.5px]" />
               {loading ? 'Menyimpan...' : 'Simpan Transaksi (Double Entry)'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

@@ -1,4 +1,5 @@
-import { GlobalSidebar } from '@/components/global-sidebar';
+import { SidebarProvider } from '@/lib/sidebar-context';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
@@ -17,16 +18,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body className={`${inter.className} bg-slate-50 text-slate-900 overflow-hidden`}>
-        <div className="flex h-screen w-full">
-          {/* Sidebar */}
-          <GlobalSidebar />
-          
-          {/* Main Content */}
-          <main className="flex-1 flex flex-col ml-64 h-full bg-slate-50/50">
+      <body className={`${inter.className} text-slate-900`}>
+        <SidebarProvider>
+          <DashboardLayout>
             {children}
-          </main>
-        </div>
+          </DashboardLayout>
+        </SidebarProvider>
       </body>
     </html>
   );
