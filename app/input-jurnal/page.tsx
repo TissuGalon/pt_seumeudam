@@ -14,9 +14,10 @@ import {
   Calendar,
   AlertCircle,
   Hash,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCcw
 } from 'lucide-react';
-import { addJurnalTransaksi } from '@/lib/actions/jurnal';
+import { addJurnalTransaksi, getNextNoBukti } from '@/lib/actions/jurnal';
 import { getMasterUnit } from '@/lib/actions/master-unit';
 import { getMasterRekening } from '@/lib/actions/master-rekening';
 import { MasterUnit } from '@/lib/types/master-unit';
@@ -148,6 +149,22 @@ export default function InputJurnalPage() {
     nilai: ''
   });
 
+  const refreshNoBukti = async () => {
+    if (!cutoff) return;
+    try {
+      const nextNo = await getNextNoBukti(cutoff.unit, cutoff.tahun, cutoff.bulan);
+      setFormData(prev => ({ ...prev, noBukti: nextNo }));
+    } catch (err) {
+      console.error("Failed to fetch next no bukti:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (cutoff) {
+      refreshNoBukti();
+    }
+  }, [cutoff]);
+
   useEffect(() => {
     const initData = async () => {
       const [u, r] = await Promise.all([
@@ -219,6 +236,9 @@ export default function InputJurnalPage() {
         uraian: '',
         nilai: ''
       }));
+      
+      // Update No Bukti for next transaction
+      refreshNoBukti();
 
     } catch (err: any) {
       setMessage({ type: 'error', text: 'Gagal menyimpan transaksi: ' + (err.message || 'Unknown error') });
@@ -387,8 +407,20 @@ export default function InputJurnalPage() {
                 />
               </div>
               <div className="md:col-span-4 space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                   <Hash className="w-3 h-3 text-emerald-500" /> Nomor Bukti Transaksi
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
+                   <div className="flex items-center gap-2">
+                      <Hash className="w-3 h-3 text-emerald-500" /> Nomor Bukti Transaksi
+                   </div>
+                   <Button 
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 text-slate-400 hover:text-emerald-500"
+                    onClick={refreshNoBukti}
+                    title="Generate Ulang Nomor"
+                   >
+                     <RefreshCcw className="w-3 h-3" />
+                   </Button>
                 </label>
                 <input 
                   type="text" 

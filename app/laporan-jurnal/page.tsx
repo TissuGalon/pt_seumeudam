@@ -185,7 +185,21 @@ export default function LaporanJurnalPage() {
     setLoading(true);
     try {
       const result = await getJurnal(filterUnit, filterBulan);
-      setData(result || []);
+      
+      // Calculate Record sequence (1, 2, ...) for rows with same NO_BUKJUR
+      let currentNoBukti = '';
+      let recordCounter = 0;
+      const dataWithRecords = (result || []).map((row: any) => {
+        if (row.NO_BUKJUR !== currentNoBukti) {
+          currentNoBukti = row.NO_BUKJUR;
+          recordCounter = 1;
+        } else {
+          recordCounter++;
+        }
+        return { ...row, record_seq: recordCounter };
+      });
+
+      setData(dataWithRecords);
     } catch (e) {
       console.error("Error fetching data:", e);
       setData([]);
@@ -214,16 +228,30 @@ export default function LaporanJurnalPage() {
       return;
     }
     
-    const exportData = data.map(row => ({
-      'Bulan': row.KOBU,
-      'Tanggal': row.TANGGAL,
-      'No Bukti': row.NO_BUKJUR,
-      'Rekening': row.REK,
-      'Rekening Lawan': row.REKLA,
-      'Uraian': row.URAIAN1,
-      'Debet': row.DEBET,
-      'Kredit': row.KREDIT
-    }));
+    const exportData = data.map(row => {
+      let tanggalStr = '';
+      try {
+        const d = new Date(row.TANGGAL);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        tanggalStr = `${day}/${month}/${year}`;
+      } catch (e) {
+        tanggalStr = String(row.TANGGAL);
+      }
+
+      return {
+        'Bulan': row.KOBU,
+        'Tanggal': tanggalStr,
+        'No Bukti': row.NO_BUKJUR,
+        'Record': row.record_seq,
+        'Rekening': row.REK,
+        'Rekening Lawan': row.REKLA,
+        'Uraian': row.URAIAN1,
+        'Debet': Number(row.DEBET || 0),
+        'Kredit': Number(row.KREDIT || 0)
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -298,6 +326,11 @@ export default function LaporanJurnalPage() {
       header: 'No Bukti',
       accessorKey: 'NO_BUKJUR',
       cell: (info: any) => <span className="font-bold text-xs text-slate-800 whitespace-nowrap tracking-tight">{info.getValue()}</span>
+    },
+    {
+      header: 'Rec',
+      accessorKey: 'record_seq',
+      cell: (info: any) => <span className="text-slate-400 font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded-md">{info.getValue()}</span>
     },
     {
       header: 'Rek',

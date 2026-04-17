@@ -70,3 +70,35 @@ export async function updateJurnal(id: number, input: any) {
     throw new Error(error.message);
   }
 }
+
+export async function getNextNoBukti(unit: string, tahun: string, bulan: string) {
+  try {
+    // Search for pattern M.[Unit].[Month].[Sequence].[Year]
+    // User wants sequence to continue throughout the year for a given Unit.
+    const pattern = `M.${unit}.%.%.${tahun}`;
+    const [rows]: any = await pool.query(
+      "SELECT NO_BUKJUR FROM jurnal_transaksi WHERE KOKE = ? AND NO_BUKJUR LIKE ? ORDER BY id DESC LIMIT 200",
+      [unit, pattern]
+    );
+
+    let maxSeq = 0;
+    rows.forEach((row: any) => {
+      const parts = row.NO_BUKJUR.split('.');
+      if (parts.length >= 4) {
+        // Part 3 is the sequence (0-indexed: 0=M, 1=Unit, 2=Month, 3=Sequence, 4=Year)
+        const seqStr = parts[3];
+        const seq = parseInt(seqStr);
+        if (!isNaN(seq) && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      }
+    });
+
+    const nextSeq = maxSeq + 1;
+    const paddedSeq = nextSeq.toString().padStart(4, '0');
+    return `M.${unit}.${bulan}.${paddedSeq}.${tahun}`;
+  } catch (error) {
+    console.error("Error calculating next No Bukti:", error);
+    return `M.${unit}.${bulan}.0001.${tahun}`;
+  }
+}
