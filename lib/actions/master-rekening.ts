@@ -108,9 +108,14 @@ export async function importMasterRekening(formData: FormData) {
       throw new Error("Format data Excel tidak sesuai. Pastikan memiliki kolom REKSUB dan NAMA_PERK.");
     }
 
+    // Deduplicate data based on REKSUB to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time" error
+    const uniqueData = Array.from(
+      new Map(dataToInsert.map(item => [item.REKSUB, item])).values()
+    );
+
     const { error } = await supabase
       .from('master_rekening')
-      .upsert(dataToInsert, { onConflict: 'REKSUB' });
+      .upsert(uniqueData, { onConflict: 'REKSUB' });
 
     if (error) throw error;
 
