@@ -36,6 +36,17 @@ const NavigationCards = [
     gradient: "from-emerald-600 to-teal-600"
   },
   {
+    title: "Input Saldo awal",
+    description: "Atur saldo awal akun akuntansi per unit untuk memulai periode pembukuan baru dengan data yang presisi.",
+    href: "/input-saldo-awal",
+    icon: TrendingUp,
+    color: "bg-indigo-500",
+    lightColor: "bg-indigo-50",
+    textColor: "text-indigo-600",
+    borderColor: "group-hover:border-indigo-200",
+    gradient: "from-indigo-600 to-violet-600"
+  },
+  {
     title: "Laporan & Jurnal",
     description: "Cetak, lihat, dan ekspor data Jurnal Transaksi bulanan ke dalam format Microsoft Excel untuk audit & arsip.",
     href: "/laporan-jurnal",

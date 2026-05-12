@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, LayoutDashboard, BookOpen, FileCheck, FileSpreadsheet, ChevronLeft, LogOut, Settings } from 'lucide-react';
+import { Home, LayoutDashboard, BookOpen, FileCheck, FileSpreadsheet, ChevronLeft, LogOut, Settings, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/lib/sidebar-context';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ export function GlobalSidebar() {
     { name: 'Master Unit', href: '/master-unit', icon: LayoutDashboard },
     { name: 'Master Rekening', href: '/master-rekening', icon: BookOpen },
     { name: 'Input Jurnal', href: '/input-jurnal', icon: FileCheck },
+    { name: 'Input Saldo Awal', href: '/input-saldo-awal', icon: TrendingUp },
     { name: 'Laporan Jurnal', href: '/laporan-jurnal', icon: FileSpreadsheet },
   ];
 
