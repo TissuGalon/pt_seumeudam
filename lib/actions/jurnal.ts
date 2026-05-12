@@ -1,26 +1,26 @@
 "use server";
 
-import { pool } from '../db';
+import { createClient } from '../supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function getJurnal(filterUnit?: string, filterBulan?: string) {
+  const supabase = await createClient();
   try {
-    let query = 'SELECT * FROM jurnal_transaksi WHERE 1=1';
-    const params: any[] = [];
+    let query = supabase.from('jurnal_transaksi').select('*');
     
     if (filterUnit) {
-      query += ' AND KOKE = ?';
-      params.push(filterUnit);
+      query = query.eq('KOKE', filterUnit);
     }
     if (filterBulan) {
-      query += ' AND KOBU = ?';
-      params.push(filterBulan);
+      query = query.eq('KOBU', filterBulan);
     }
     
-    query += ' ORDER BY TANGGAL ASC, NO_BUKJUR ASC';
+    const { data, error } = await query
+      .order('TANGGAL', { ascending: true })
+      .order('NO_BUKJUR', { ascending: true });
     
-    const [rows] = await pool.query(query, params);
-    return rows as any[];
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching jurnal:", error);
     return [];
@@ -28,8 +28,14 @@ export async function getJurnal(filterUnit?: string, filterBulan?: string) {
 }
 
 export async function deleteJurnal(id: string) {
+  const supabase = await createClient();
   try {
-    await pool.query('DELETE FROM jurnal_transaksi WHERE id = ?', [id]);
+    const { error } = await supabase
+      .from('jurnal_transaksi')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
     revalidatePath('/laporan-jurnal');
     return true;
   } catch (error: any) {
@@ -39,30 +45,32 @@ export async function deleteJurnal(id: string) {
 }
 
 export async function addJurnalTransaksi(rows: any[]) {
-  const connection = await pool.getConnection();
+  const supabase = await createClient();
   try {
-    await connection.beginTransaction();
+    const { error } = await supabase
+      .from('jurnal_transaksi')
+      .insert(rows);
     
-    for (const row of rows) {
-      await connection.query('INSERT INTO jurnal_transaksi SET ?', [row]);
-    }
+    if (error) throw error;
     
-    await connection.commit();
     revalidatePath('/laporan-jurnal');
     revalidatePath('/input-jurnal');
     return true;
   } catch (error: any) {
-    await connection.rollback();
     console.error("Error adding jurnal:", error);
     throw new Error(error.message);
-  } finally {
-    connection.release();
   }
 }
 
-export async function updateJurnal(id: number, input: any) {
+export async function updateJurnal(id: string | number, input: any) {
+  const supabase = await createClient();
   try {
-    await pool.query('UPDATE jurnal_transaksi SET ? WHERE id = ?', [input, id]);
+    const { error } = await supabase
+      .from('jurnal_transaksi')
+      .update(input)
+      .eq('id', id);
+    
+    if (error) throw error;
     revalidatePath('/laporan-jurnal');
     return true;
   } catch (error: any) {
@@ -72,20 +80,22 @@ export async function updateJurnal(id: number, input: any) {
 }
 
 export async function getNextNoBukti(unit: string, tahun: string, bulan: string) {
+  const supabase = await createClient();
   try {
-    // Search for pattern M.[Unit].[Month].[Sequence].[Year]
-    // User wants sequence to continue throughout the year for a given Unit.
-    const pattern = `M.${unit}.%.%.${tahun}`;
-    const [rows]: any = await pool.query(
-      "SELECT NO_BUKJUR FROM jurnal_transaksi WHERE KOKE = ? AND NO_BUKJUR LIKE ? ORDER BY id DESC LIMIT 200",
-      [unit, pattern]
-    );
+    const { data, error } = await supabase
+      .from('jurnal_transaksi')
+      .select('NO_BUKJUR')
+      .eq('KOKE', unit)
+      .like('NO_BUKJUR', `M.${unit}.%.%.${tahun}`)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
 
     let maxSeq = 0;
-    rows.forEach((row: any) => {
+    data?.forEach((row: any) => {
       const parts = row.NO_BUKJUR.split('.');
       if (parts.length >= 4) {
-        // Part 3 is the sequence (0-indexed: 0=M, 1=Unit, 2=Month, 3=Sequence, 4=Year)
         const seqStr = parts[3];
         const seq = parseInt(seqStr);
         if (!isNaN(seq) && seq > maxSeq) {

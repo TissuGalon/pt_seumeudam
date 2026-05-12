@@ -1,14 +1,20 @@
 "use server";
 
-import { pool } from '../db';
+import { createClient } from '../supabase/server';
 import { MasterRekening, MasterRekeningInput } from '../types/master-rekening';
 import { revalidatePath } from 'next/cache';
 import * as XLSX from 'xlsx';
 
 export async function getMasterRekening() {
+  const supabase = await createClient();
   try {
-    const [rows] = await pool.query('SELECT * FROM master_rekening ORDER BY REKSUB ASC');
-    return rows as MasterRekening[];
+    const { data, error } = await supabase
+      .from('master_rekening')
+      .select('*')
+      .order('REKSUB', { ascending: true });
+    
+    if (error) throw error;
+    return data as MasterRekening[];
   } catch (error) {
     console.error("Error fetching master_rekening:", error);
     return [];
@@ -16,11 +22,17 @@ export async function getMasterRekening() {
 }
 
 export async function addMasterRekening(input: MasterRekeningInput) {
+  const supabase = await createClient();
   try {
-    await pool.query('INSERT INTO master_rekening SET ?', [input]);
-    const [rows] = await pool.query('SELECT * FROM master_rekening WHERE REKSUB = ?', [input.REKSUB]);
+    const { data, error } = await supabase
+      .from('master_rekening')
+      .insert([input])
+      .select()
+      .single();
+    
+    if (error) throw error;
     revalidatePath('/master-rekening');
-    return (rows as any[])[0] as MasterRekening;
+    return data as MasterRekening;
   } catch (error: any) {
     console.error("Error adding master_rekening:", error);
     throw new Error(error.message);
@@ -28,11 +40,18 @@ export async function addMasterRekening(input: MasterRekeningInput) {
 }
 
 export async function updateMasterRekening(reksub: string, input: Partial<MasterRekeningInput>) {
+  const supabase = await createClient();
   try {
-    await pool.query('UPDATE master_rekening SET ? WHERE REKSUB = ?', [input, reksub]);
-    const [rows] = await pool.query('SELECT * FROM master_rekening WHERE REKSUB = ?', [reksub]);
+    const { data, error } = await supabase
+      .from('master_rekening')
+      .update(input)
+      .eq('REKSUB', reksub)
+      .select()
+      .single();
+    
+    if (error) throw error;
     revalidatePath('/master-rekening');
-    return (rows as any[])[0] as MasterRekening;
+    return data as MasterRekening;
   } catch (error: any) {
     console.error("Error updating master_rekening:", error);
     throw new Error(error.message);
@@ -40,8 +59,14 @@ export async function updateMasterRekening(reksub: string, input: Partial<Master
 }
 
 export async function deleteMasterRekening(reksub: string) {
+  const supabase = await createClient();
   try {
-    await pool.query('DELETE FROM master_rekening WHERE REKSUB = ?', [reksub]);
+    const { error } = await supabase
+      .from('master_rekening')
+      .delete()
+      .eq('REKSUB', reksub);
+    
+    if (error) throw error;
     revalidatePath('/master-rekening');
     return true;
   } catch (error: any) {
@@ -51,6 +76,7 @@ export async function deleteMasterRekening(reksub: string) {
 }
 
 export async function importMasterRekening(formData: FormData) {
+  const supabase = await createClient();
   try {
     const file = formData.get('file') as File;
     if (!file) throw new Error("File tidak ditemukan.");
@@ -65,9 +91,7 @@ export async function importMasterRekening(formData: FormData) {
       throw new Error("File Excel kosong atau tidak valid.");
     }
 
-    // Map data and ensure keys match database (case-insensitive check for common headers)
     const dataToInsert = rawData.map((row: any) => {
-      // Find keys regardless of case
       const findKey = (candidates: string[]) => {
         const key = Object.keys(row).find(k => candidates.includes(k.toUpperCase()));
         return key ? String(row[key]).trim() : '';
@@ -84,20 +108,13 @@ export async function importMasterRekening(formData: FormData) {
       throw new Error("Format data Excel tidak sesuai. Pastikan memiliki kolom REKSUB dan NAMA_PERK.");
     }
 
-    // Prepare for batch insertion
-    const values = dataToInsert.map(d => [d.REKSUB, d.REKIN, d.NAMA_PERK]);
-    
-    const query = `
-      INSERT INTO master_rekening (REKSUB, REKIN, NAMA_PERK)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE
-      REKIN = VALUES(REKIN),
-      NAMA_PERK = VALUES(NAMA_PERK)
-    `;
+    const { error } = await supabase
+      .from('master_rekening')
+      .upsert(dataToInsert, { onConflict: 'REKSUB' });
 
-    await pool.query(query, [values]);
+    if (error) throw error;
+
     revalidatePath('/master-rekening');
-    
     return { success: true, count: dataToInsert.length };
   } catch (error: any) {
     console.error("Error importing master_rekening:", error);

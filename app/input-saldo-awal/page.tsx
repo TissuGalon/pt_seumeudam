@@ -26,6 +26,8 @@ import { MasterRekening } from '@/lib/types/master-rekening';
 import { SaldoAwal } from '@/lib/types/saldo-awal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
 
 const BULAN_OPTIONS = [
   { value: '01', label: 'Januari' }, { value: '02', label: 'Februari' },
@@ -42,6 +44,46 @@ export default function InputSaldoAwalPage() {
   const [selectedUnit, setSelectedUnit] = useState('');
   const [selectedBulan, setSelectedBulan] = useState('01');
   const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear().toString());
+  
+  const columns: ColumnDef<SaldoAwal>[] = [
+    {
+      accessorKey: 'KOKE',
+      header: 'Unit',
+      cell: ({ row }) => (
+        <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-black uppercase">
+          {row.original.KOKE}
+        </span>
+      )
+    },
+    {
+      accessorKey: 'BULAN',
+      header: 'Periode',
+      cell: ({ row }) => <span className="text-xs font-bold text-slate-500">{row.original.BULAN}/{row.original.TAHUN}</span>
+    },
+    {
+      accessorKey: 'REK',
+      header: 'Kode Akun',
+      cell: ({ row }) => <span className="font-mono text-sm font-bold text-indigo-700">{row.original.REK}</span>
+    },
+    {
+      accessorKey: 'NAMA_PERK',
+      header: 'Nama Rekening',
+      cell: ({ row }) => {
+        const rekDetail = rekening.find(r => r.REKSUB === row.original.REK);
+        return <span className="text-sm font-bold text-slate-700">{row.original.NAMA_PERK || rekDetail?.NAMA_PERK || 'Tidak dikenal'}</span>
+      }
+    },
+    {
+      accessorKey: 'DEBET',
+      header: () => <div className="text-right">Debet</div>,
+      cell: ({ row }) => <div className="text-right font-mono text-sm font-black text-emerald-600">{formatRupiah(row.original.DEBET)}</div>
+    },
+    {
+      accessorKey: 'KREDIT',
+      header: () => <div className="text-right">Kredit</div>,
+      cell: ({ row }) => <div className="text-right font-mono text-sm font-black text-rose-600">{formatRupiah(row.original.KREDIT)}</div>
+    }
+  ];
   
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [existingData, setExistingData] = useState<SaldoAwal[]>([]);
@@ -63,16 +105,27 @@ export default function InputSaldoAwalPage() {
   }, []);
 
   const fetchExistingData = async () => {
-    if (!selectedUnit || !selectedBulan || !selectedTahun) return;
     setLoading(true);
     try {
-      const data = await getSaldoAwal(selectedUnit, selectedBulan, selectedTahun);
+      // Use selected values, but allow them to be empty to fetch "All"
+      const data = await getSaldoAwal(
+        selectedUnit || undefined, 
+        selectedBulan === 'ALL' ? undefined : selectedBulan, 
+        selectedTahun || undefined
+      );
       setExistingData(data);
     } catch (err) {
       console.error("Failed to fetch existing data", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const showAllData = () => {
+    setSelectedUnit('');
+    setSelectedBulan('ALL');
+    // We keep the year as it's usually relevant, but could clear it too
+    fetchExistingData();
   };
 
   useEffect(() => {
@@ -93,14 +146,14 @@ export default function InputSaldoAwalPage() {
       
       // Map data to match schema and show in preview
       const mapped = data.map((row: any) => ({
-        KOKE: String(row.KOKE || selectedUnit),
-        BULAN: String(row.BULAN || selectedBulan),
+        KOKE: String(row.KOKE || selectedUnit).trim(),
+        BULAN: String(row.BULAN || selectedBulan).trim(),
         TAHUN: selectedTahun, // We use the selected year from UI
-        REK: String(row.REKSUB || row.REK || ''),
+        REK: String(row.REKSUB || row.REK || '').trim(),
         NAMA_PERK: row.NAMA_PERK || '',
         DEBET: parseFloat(row.SAWAL_DEB || row.DEBET || 0),
         KREDIT: parseFloat(row.SAWAL_KRE || row.KREDIT || 0)
-      })).filter(r => r.REK !== '');
+      })).filter(r => r.REK !== '' && rekening.some(rek => rek.REKSUB === r.REK));
 
       setPreviewData(mapped);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -224,6 +277,7 @@ export default function InputSaldoAwalPage() {
               value={selectedBulan}
               onChange={(e) => setSelectedBulan(e.target.value)}
             >
+              <option value="ALL">-- Semua Bulan --</option>
               {BULAN_OPTIONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
             </select>
             <input 
@@ -246,15 +300,23 @@ export default function InputSaldoAwalPage() {
            </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex items-center justify-center">
+        <div className="bg-white p-6 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col gap-2">
+            <Button 
+              variant="outline"
+              onClick={showAllData}
+              className="border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 font-bold flex flex-col items-center gap-1 h-auto py-3 rounded-2xl w-full shadow-sm"
+            >
+              <Search className="w-5 h-5" />
+              <span className="text-[10px] uppercase tracking-widest">Semua Data</span>
+            </Button>
             <Button 
               variant="ghost"
               onClick={handleClear}
               disabled={loading || existingData.length === 0}
               className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 font-bold flex flex-col items-center gap-1 h-auto py-3 rounded-2xl w-full"
             >
-              <Trash2 className="w-6 h-6" />
-              <span className="text-[10px] uppercase tracking-widest">Kosongkan Data</span>
+              <Trash2 className="w-4 h-4" />
+              <span className="text-[10px] uppercase tracking-widest">Kosongkan</span>
             </Button>
         </div>
       </div>
@@ -286,68 +348,56 @@ export default function InputSaldoAwalPage() {
           )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-              <tr>
-                <th className="px-8 py-4">Kode Akun</th>
-                <th className="px-8 py-4">Nama Rekening</th>
-                <th className="px-8 py-4 text-right">Debet</th>
-                <th className="px-8 py-4 text-right">Kredit</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-20 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <RefreshCcw className="w-8 h-8 text-indigo-500 animate-spin" />
-                      <span className="text-sm font-bold text-slate-400">Memuat data...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (previewData.length > 0 ? previewData : existingData).length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-20 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
-                        <FileSpreadsheet className="w-8 h-8 text-slate-200" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-slate-700 font-bold text-lg">Belum ada data saldo awal</p>
-                        <p className="text-slate-400 text-sm max-w-xs mx-auto font-medium leading-relaxed">Silakan import dari Excel atau gunakan formulir untuk menambah data.</p>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (previewData.length > 0 ? previewData : existingData).map((row, i) => {
-                const rekDetail = rekening.find(r => r.REKSUB === row.REK);
-                return (
-                  <tr key={i} className={cn("hover:bg-indigo-50/30 transition-colors", previewData.length > 0 && "bg-emerald-50/10")}>
-                    <td className="px-8 py-4 font-mono text-sm font-bold text-indigo-700">{row.REK}</td>
-                    <td className="px-8 py-4 text-sm font-bold text-slate-700">{row.NAMA_PERK || rekDetail?.NAMA_PERK || 'Tidak dikenal'}</td>
-                    <td className="px-8 py-4 text-right font-mono text-sm font-black text-emerald-600">{formatRupiah(row.DEBET)}</td>
-                    <td className="px-8 py-4 text-right font-mono text-sm font-black text-rose-600">{formatRupiah(row.KREDIT)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            {(previewData.length > 0 || existingData.length > 0) && (
-              <tfoot className="bg-slate-50/80 font-black">
-                <tr>
-                  <td colSpan={2} className="px-8 py-4 text-slate-400 text-xs uppercase tracking-widest">Total Keseluruhan</td>
-                  <td className="px-8 py-4 text-right font-mono text-lg text-emerald-700">
-                    {formatRupiah((previewData.length > 0 ? previewData : existingData).reduce((a, b) => a + b.DEBET, 0))}
-                  </td>
-                  <td className="px-8 py-4 text-right font-mono text-lg text-rose-700">
-                    {formatRupiah((previewData.length > 0 ? previewData : existingData).reduce((a, b) => a + b.KREDIT, 0))}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
+        <div className="p-8">
+          <DataTable 
+            columns={columns} 
+            data={previewData.length > 0 ? previewData : existingData}
+            searchKey="REK"
+            searchPlaceholder="Cari berdasarkan kode akun atau unit..."
+            filename={`Saldo_Awal_${selectedUnit}_${selectedBulan}_${selectedTahun}`}
+          />
         </div>
       </div>
+      
+      {/* Summary Bar */}
+      {(previewData.length > 0 || existingData.length > 0) && (
+        <div className="mt-6 bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            <div className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debet</p>
+                <p className="text-2xl font-black text-emerald-600 font-mono">
+                  {formatRupiah((previewData.length > 0 ? previewData : existingData).reduce((a, b) => a + b.DEBET, 0))}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </div>
+            <div className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Kredit</p>
+                <p className="text-2xl font-black text-rose-600 font-mono">
+                  {formatRupiah((previewData.length > 0 ? previewData : existingData).reduce((a, b) => a + b.KREDIT, 0))}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 rotate-180">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-50 px-8 py-3 flex items-center justify-center border-t border-slate-100">
+             <div className={cn(
+               "text-xs font-black uppercase tracking-[0.2em]",
+               Math.abs((previewData.length > 0 ? previewData : existingData).reduce((a, b) => a + (b.DEBET - b.KREDIT), 0)) < 0.01 
+                ? "text-emerald-500" : "text-rose-500"
+             )}>
+               {Math.abs((previewData.length > 0 ? previewData : existingData).reduce((a, b) => a + (b.DEBET - b.KREDIT), 0)) < 0.01 
+                ? "Balance / Seimbang" : "Unbalanced / Tidak Seimbang"}
+             </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-10 p-6 bg-amber-50 rounded-3xl border border-amber-100 flex items-start gap-4">
          <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">

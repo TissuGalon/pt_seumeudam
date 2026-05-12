@@ -1,29 +1,28 @@
 "use server";
 
-import { pool } from '../db';
+import { createClient } from '../supabase/server';
 import { revalidatePath } from 'next/cache';
 import { SaldoAwal } from '../types/saldo-awal';
 
 export async function getSaldoAwal(filterUnit?: string, filterBulan?: string, filterTahun?: string) {
+  const supabase = await createClient();
   try {
-    let query = 'SELECT * FROM saldo_awal WHERE 1=1';
-    const params: any[] = [];
+    let query = supabase.from('saldo_awal').select('*');
     
     if (filterUnit) {
-      query += ' AND KOKE = ?';
-      params.push(filterUnit);
+      query = query.eq('KOKE', filterUnit);
     }
     if (filterBulan) {
-      query += ' AND BULAN = ?';
-      params.push(filterBulan);
+      query = query.eq('BULAN', filterBulan);
     }
     if (filterTahun) {
-      query += ' AND TAHUN = ?';
-      params.push(filterTahun);
+      query = query.eq('TAHUN', filterTahun);
     }
     
-    const [rows] = await pool.query(query, params);
-    return rows as SaldoAwal[];
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return data as SaldoAwal[];
   } catch (error) {
     console.error("Error fetching saldo awal:", error);
     return [];
@@ -31,33 +30,32 @@ export async function getSaldoAwal(filterUnit?: string, filterBulan?: string, fi
 }
 
 export async function addSaldoAwal(rows: SaldoAwal[]) {
-  const connection = await pool.getConnection();
+  const supabase = await createClient();
   try {
-    await connection.beginTransaction();
+    const { error } = await supabase
+      .from('saldo_awal')
+      .insert(rows);
     
-    for (const row of rows) {
-      // Check if entry already exists for this account, unit, and period
-      // If you want to overwrite, you can use REPLACE INTO or DELETE first.
-      // For simplicity and safety, we'll DELETE existing ones for the same KOKE/BULAN/TAHUN first if it's a bulk import.
-      // But let's just use INSERT for now, or use a more specific logic.
-      await connection.query('INSERT INTO saldo_awal SET ?', [row]);
-    }
+    if (error) throw error;
     
-    await connection.commit();
     revalidatePath('/input-saldo-awal');
     return true;
   } catch (error: any) {
-    await connection.rollback();
     console.error("Error adding saldo awal:", error);
     throw new Error(error.message);
-  } finally {
-    connection.release();
   }
 }
 
-export async function deleteSaldoAwal(id: number) {
+export async function deleteSaldoAwal(id: string | number) {
+  const supabase = await createClient();
   try {
-    await pool.query('DELETE FROM saldo_awal WHERE id = ?', [id]);
+    const { error } = await supabase
+      .from('saldo_awal')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
     revalidatePath('/input-saldo-awal');
     return true;
   } catch (error: any) {
@@ -67,8 +65,17 @@ export async function deleteSaldoAwal(id: number) {
 }
 
 export async function clearSaldoAwal(unit: string, bulan: string, tahun: string) {
+    const supabase = await createClient();
     try {
-      await pool.query('DELETE FROM saldo_awal WHERE KOKE = ? AND BULAN = ? AND TAHUN = ?', [unit, bulan, tahun]);
+      const { error } = await supabase
+        .from('saldo_awal')
+        .delete()
+        .eq('KOKE', unit)
+        .eq('BULAN', bulan)
+        .eq('TAHUN', tahun);
+      
+      if (error) throw error;
+      
       revalidatePath('/input-saldo-awal');
       return true;
     } catch (error: any) {

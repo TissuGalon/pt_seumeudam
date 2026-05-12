@@ -60,3 +60,20 @@ insert into public.master_rekening ("REKSUB", "REKIN", "NAMA_PERK") values
 ('154.00', '154', 'Kas Lintas Unit'),
 ('210.00', '210', 'Hutang Gaji'),
 ('210.01', '210', 'Gaji Pokok');
+
+-- ==========================================
+-- 4. Tabel saldo_awal
+-- Menyimpan data saldo awal akun per unit dan periode
+-- ==========================================
+create table public.saldo_awal (
+    id uuid default uuid_generate_v4() primary key,
+    "KOKE" varchar(10) not null references public.master_unit("KOKE"),
+    "BULAN" varchar(5) not null,
+    "TAHUN" varchar(5) not null,
+    "REK" varchar(50) not null references public.master_rekening("REKSUB"),
+    "DEBET" numeric(15,2) default 0.00,
+    "KREDIT" numeric(15,2) default 0.00,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index idx_sa_unit_period on public.saldo_awal ("KOKE", "BULAN", "TAHUN");
