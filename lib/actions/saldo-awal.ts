@@ -64,6 +64,27 @@ export async function deleteSaldoAwal(id: string | number) {
   }
 }
 
+export async function updateSaldoAwal(id: string | number, data: Partial<SaldoAwal>) {
+  const supabase = await createClient();
+  try {
+    // Remove virtual properties or fields that shouldn't be updated
+    const { NAMA_PERK, id: _id, created_at, ...updateData } = data as any;
+    
+    const { error } = await supabase
+      .from('saldo_awal')
+      .update(updateData)
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    revalidatePath('/input-saldo-awal');
+    return true;
+  } catch (error: any) {
+    console.error("Error updating saldo awal:", error);
+    throw new Error(error.message);
+  }
+}
+
 export async function clearSaldoAwal(unit: string, bulan: string, tahun: string) {
     const supabase = await createClient();
     try {

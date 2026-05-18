@@ -20,7 +20,7 @@ import {
 import * as XLSX from 'xlsx';
 import { getMasterUnit } from '@/lib/actions/master-unit';
 import { getMasterRekening } from '@/lib/actions/master-rekening';
-import { addSaldoAwal, getSaldoAwal, clearSaldoAwal } from '@/lib/actions/saldo-awal';
+import { addSaldoAwal, getSaldoAwal, clearSaldoAwal, updateSaldoAwal, deleteSaldoAwal } from '@/lib/actions/saldo-awal';
 import { MasterUnit } from '@/lib/types/master-unit';
 import { MasterRekening } from '@/lib/types/master-rekening';
 import { SaldoAwal } from '@/lib/types/saldo-awal';
@@ -28,6 +28,17 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Edit, Plus } from 'lucide-react';
 
 const BULAN_OPTIONS = [
   { value: '01', label: 'Januari' }, { value: '02', label: 'Februari' },
@@ -82,6 +93,30 @@ export default function InputSaldoAwalPage() {
       accessorKey: 'KREDIT',
       header: () => <div className="text-right">Kredit</div>,
       cell: ({ row }) => <div className="text-right font-mono text-sm font-black text-rose-600">{formatRupiah(row.original.KREDIT)}</div>
+    },
+    {
+      id: 'actions',
+      header: 'Aksi',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => handleEdit(row.original)}
+            className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => handleDeleteRow(row.original.id!)}
+            className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )
     }
   ];
   
@@ -89,6 +124,18 @@ export default function InputSaldoAwalPage() {
   const [existingData, setExistingData] = useState<SaldoAwal[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  
+  // Dialog State
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
+  const [formData, setFormData] = useState<Partial<SaldoAwal>>({
+    KOKE: '',
+    BULAN: '01',
+    TAHUN: new Date().getFullYear().toString(),
+    REK: '',
+    DEBET: 0,
+    KREDIT: 0
+  });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -205,6 +252,63 @@ export default function InputSaldoAwalPage() {
     }
   };
 
+  const handleOpenAdd = () => {
+    setDialogMode('add');
+    setFormData({
+      KOKE: selectedUnit,
+      BULAN: selectedBulan === 'ALL' ? '01' : selectedBulan,
+      TAHUN: selectedTahun,
+      REK: '',
+      DEBET: 0,
+      KREDIT: 0
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (record: SaldoAwal) => {
+    setDialogMode('edit');
+    setFormData(record);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteRow = async (id: number) => {
+    if (!confirm("Hapus baris saldo awal ini?")) return;
+    setLoading(true);
+    try {
+      await deleteSaldoAwal(id);
+      setMessage({ type: 'success', text: 'Baris saldo awal berhasil dihapus.' });
+      fetchExistingData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: 'Gagal menghapus: ' + err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDialogSave = async () => {
+    if (!formData.KOKE || !formData.REK) {
+      alert("Unit dan Rekening wajib diisi!");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      if (dialogMode === 'add') {
+        await addSaldoAwal([formData as SaldoAwal]);
+        setMessage({ type: 'success', text: 'Berhasil menambahkan saldo awal manual.' });
+      } else {
+        await updateSaldoAwal(formData.id!, formData);
+        setMessage({ type: 'success', text: 'Berhasil memperbarui saldo awal.' });
+      }
+      setIsDialogOpen(false);
+      fetchExistingData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: 'Gagal menyimpan: ' + err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatRupiah = (angka: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -243,6 +347,12 @@ export default function InputSaldoAwalPage() {
             className="bg-white border-2 border-slate-100 text-slate-600 hover:bg-slate-50 px-6 h-12 rounded-2xl font-black text-sm shadow-sm transition-all flex items-center gap-2"
           >
             <Upload className="w-4 h-4" /> Import Excel
+          </Button>
+          <Button 
+            onClick={handleOpenAdd}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 h-12 rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 transition-all flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Tambah Manual
           </Button>
           {previewData.length > 0 && (
             <Button 
@@ -411,6 +521,115 @@ export default function InputSaldoAwalPage() {
             </p>
          </div>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden">
+          <div className="bg-indigo-600 p-8 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+                {dialogMode === 'add' ? <Plus className="w-6 h-6" /> : <Edit className="w-6 h-6" />}
+                {dialogMode === 'add' ? 'Tambah Saldo Awal' : 'Edit Saldo Awal'}
+              </DialogTitle>
+              <DialogDescription className="text-indigo-100 font-medium opacity-80">
+                {dialogMode === 'add' 
+                  ? 'Masukkan data saldo awal untuk akun tertentu secara manual.' 
+                  : 'Perbarui nilai debet atau kredit untuk baris saldo awal ini.'}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          
+          <div className="p-8 space-y-6 bg-white">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit</Label>
+                <select 
+                  className="w-full border-2 border-slate-50 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none transition-all"
+                  value={formData.KOKE}
+                  onChange={(e) => setFormData({...formData, KOKE: e.target.value})}
+                  disabled={dialogMode === 'edit'}
+                >
+                  <option value="">-- Pilih Unit --</option>
+                  {units.map(u => <option key={u.KOKE} value={u.KOKE}>{u.KOKE} - {u.NAKE}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rekening</Label>
+                <select 
+                  className="w-full border-2 border-slate-50 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none transition-all"
+                  value={formData.REK}
+                  onChange={(e) => setFormData({...formData, REK: e.target.value})}
+                  disabled={dialogMode === 'edit'}
+                >
+                  <option value="">-- Pilih Rekening --</option>
+                  {rekening.map(r => <option key={r.REKSUB} value={r.REKSUB}>{r.REKSUB} - {r.NAMA_PERK}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bulan</Label>
+                <select 
+                  className="w-full border-2 border-slate-50 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none transition-all"
+                  value={formData.BULAN}
+                  onChange={(e) => setFormData({...formData, BULAN: e.target.value})}
+                  disabled={dialogMode === 'edit'}
+                >
+                  {BULAN_OPTIONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tahun</Label>
+                <Input 
+                  type="number"
+                  value={formData.TAHUN}
+                  onChange={(e) => setFormData({...formData, TAHUN: e.target.value})}
+                  disabled={dialogMode === 'edit'}
+                  className="bg-slate-50 border-none rounded-xl font-bold h-11"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Debet</Label>
+                <Input 
+                  type="number"
+                  value={formData.DEBET}
+                  onChange={(e) => setFormData({...formData, DEBET: parseFloat(e.target.value) || 0})}
+                  className="bg-emerald-50 border-none text-emerald-700 font-mono font-black h-12 text-lg rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black text-rose-600 uppercase tracking-widest ml-1">Kredit</Label>
+                <Input 
+                  type="number"
+                  value={formData.KREDIT}
+                  onChange={(e) => setFormData({...formData, KREDIT: parseFloat(e.target.value) || 0})}
+                  className="bg-rose-50 border-none text-rose-700 font-mono font-black h-12 text-lg rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="p-8 pt-0 bg-white">
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsDialogOpen(false)}
+              className="rounded-xl font-bold text-slate-400"
+            >
+              Batal
+            </Button>
+            <Button 
+              onClick={handleDialogSave}
+              disabled={loading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 h-12 rounded-xl font-black text-sm shadow-xl shadow-indigo-100 transition-all"
+            >
+              {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
